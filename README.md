@@ -5,7 +5,7 @@ canisters packed by [ruby_wasm_builder](https://gitlab.com/phrug/ruby_wasm_build
 on its `minimal` Build. That Build links no C extension and defines no
 `Encoding` constant, and Rack and Roda need all four:
 
-| file | stands in for | why Rack needs it |
+| file (in `lib/ruby_wasm_ic_minimal/standins/`) | stands in for | why Rack needs it |
 | --- | --- | --- |
 | `encoding_constants.rb` | `Encoding::UTF_8`, `US_ASCII`, `ASCII_8BIT` (and `BINARY`, `ASCII`) | it decodes every query parameter as UTF-8 |
 | `stringio.rb` | `StringIO` (a C extension in CRuby) | `rack.input`, `Rack::MockRequest` |
@@ -23,15 +23,16 @@ formats and reads HTTP dates, which need nothing from `Date`; `Time.parse`,
 **Do not put this gem in a Gemfile.** Each file shadows a real library by its
 name, and `date.rb` is a stub. So every file refuses to load anywhere but a
 `minimal` canister, raising `LoadError`. A `minimal` canister is one where the
-builder's wrapper gem has defined `IC::DATA_DIR` and the core has no encoding
-database (`ISO-8859-1` is not in `Encoding.name_list`). On the `full` Build,
-which links the real libraries and every encoding, it refuses too: carry none
-of it there.
+builder's wrapper gem has defined `IC::DATA_DIR` and the core registered no
+alias for any encoding (`Encoding.name_list.size == Encoding.list.size`).
+Observed on PocketIC with the 0.6.0 Base Module (28 October 2026): twelve
+encodings, the core's built-in table, and no alias, which is why
+`# encoding: binary` traps there. MRI and the `full` Build register aliases,
+so it refuses there too: carry none of it on `full`.
 
 ## Carrying it
 
-Copy its `lib/` into your Application and put it first on the load path,
-before Rack is required:
+Copy its `lib/` into your Application, and require it first, before Rack:
 
 ```bash
 gem fetch ruby_wasm_ic_minimal && gem unpack ruby_wasm_ic_minimal-*.gem
@@ -42,25 +43,37 @@ cp -r ruby_wasm_ic_minimal-*/lib my_app/vendor/ruby_wasm_ic_minimal
 # app.rb
 here = __dir__
 $LOAD_PATH.unshift(File.join(here, "vendor/ruby_wasm_ic_minimal"), File.join(here, "vendor/rack"))
-require "encoding_constants"
-require "stringio"
+require "ruby_wasm_ic_minimal"   # puts the stand-ins first on $LOAD_PATH and loads all four
 require "rack"
 ```
 
-`require "ruby_wasm_ic_minimal"` loads all four at once. Otherwise Rack's own
-`require "strscan"` and `time`'s `require "date"` find them by name.
+The stand-ins live in `lib/ruby_wasm_ic_minimal/standins/`, not in `lib/`
+itself, so having the gem installed, or in a Gemfile, shadows nothing on MRI.
+`require "ruby_wasm_ic_minimal"` is what puts them on the load path, and only
+in a `minimal` canister. After it, Rack's own `require "strscan"` and `time`'s
+`require "date"` find them by name.
 
 ## Development
 
-The gem lives in the ruby_wasm_builder repository, `gems/ruby_wasm_ic_minimal/`. Its
-specs are in that repository's `spec/gems/`, and run with the builder's suite,
-including the 0.7.0 `roda_on_minimal` Script played as `minimal` with this
-gem in place of the Challenge's own `carried/` files.
+This repository is the gem's source. The
+[ruby_wasm_builder](https://gitlab.com/phrug/ruby_wasm_builder) suite tests the
+published gem (its `spec/gems/`): the guard on MRI, the stand-ins traced
+against CRuby's C extensions, and the 0.7.0 `roda_on_minimal` Script played as
+`minimal` with this gem in place of the Challenge's own `carried/` files. To
+release: bump `lib/ruby_wasm_ic_minimal/version.rb`, then `gem build
+ruby_wasm_ic_minimal.gemspec` and check `gem spec ruby_wasm_ic_minimal-*.gem
+files` lists the lib files before `gem push`.
 
-**The rule, observed on a canister** (28 October 2026, the 0.6.0 Base Module
-on PocketIC): a `minimal` canister knows 12 encodings, the ones CRuby's core
-registers without its encoding database, so 0.1.1's rule
-(`Encoding.list.size <= 3`) refused to load there. 0.1.2 asks whether
-`ISO-8859-1` is a known name instead.
+## Changes
+
+- **0.1.3:** the stand-ins moved under `lib/ruby_wasm_ic_minimal/standins/`,
+  put on `$LOAD_PATH` by `require "ruby_wasm_ic_minimal"`, so a Gemfile that
+  lists the gem shadows nothing; the guard's rule is "no aliases". **Use
+  0.1.3 or later in a Gemfile:** with 0.1.2 or earlier listed, any
+  `require "stringio"` on MRI finds the stand-in and raises.
+- **0.1.2:** the guard asks for `ISO-8859-1` by name, and loads on a
+  `minimal` canister. The stand-ins are still at the top of `lib/`.
+- **0.1.1:** the first release with files.
+- **0.1.0:** published empty (no `spec.files`).
 
 MIT licensed.

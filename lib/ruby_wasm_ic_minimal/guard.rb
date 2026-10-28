@@ -1,29 +1,41 @@
-# The guard every stand-in in ruby_wasm_ic_minimal requires first. A stand-in shadows a
-# real library by its name (`date`, `stringio`, `strscan`), and `date.rb` here
-# is a stub, so loading one anywhere but a `minimal` canister would quietly
-# take the real library away. The guard refuses that instead, with LoadError.
+# The guard the entry file and every stand-in in ruby_wasm_ic_minimal require
+# first. A stand-in shadows a real library by its name (`date`, `stringio`,
+# `strscan`), and `date.rb` here is a stub, so loading one anywhere but a
+# `minimal` canister would quietly take the real library away. The guard
+# refuses that instead, with LoadError. Since 0.1.3 the stand-ins also sit
+# outside lib/ proper (ruby_wasm_ic_minimal/standins/), so they shadow nothing
+# unless that directory is put on $LOAD_PATH; the guard is the second line.
 #
 # A `minimal` canister is one where the wrapper gem has defined IC::DATA_DIR
-# (every canister packed by ruby_wasm_builder) and the core has no encoding
-# database: no ISO-8859-1 among Encoding.name_list. A `minimal` canister knows
-# only the encodings CRuby's core registers without Init_enc (12 on the 0.6.0
-# Base Module, observed 28 October 2026); any CRuby with the database, `full`
-# or MRI, knows ISO-8859-1 by name. 0.1.1 counted the encodings and expected 3
-# or fewer, which refused on the canister itself. The guard asks by name rather
-# than looking for Encoding::UTF_8, which this gem's own encoding_constants.rb
-# defines, and rather than counting, which a Ruby version can change. Decided
-# once, at the first stand-in loaded,
-# and kept in RubyWasmIcMinimal::ON_MINIMAL; a test harness may set that constant
-# first (the builder's MRI player does, for `minimal: true`).
+# (every canister packed by ruby_wasm_builder) and the core registered no
+# alias for any encoding: `Encoding.name_list` is exactly `Encoding.list`'s
+# names. Observed on PocketIC 16.0.0 with the 0.6.0 Base Module (28 October
+# 2026): twelve encodings, the core's built-in table, and twelve names, no
+# alias among them, which is why `# encoding: binary` traps there. MRI, and a
+# Build that links the encoding database (`full`), register aliases (BINARY,
+# ASCII, CP65001, ...) and the pseudo-names `locale`, `external` and
+# `filesystem`, so their name list is longer. 0.1.1 counted `Encoding.list`
+# against 3 and refused on every canister; 0.1.2 asked for `ISO-8859-1` by
+# name, which held on a canister too.
+#
+# It counts names rather than looking for Encoding::UTF_8, which this gem's
+# own encoding_constants.rb defines, and defining a constant adds no name.
+# Decided once, at the first stand-in loaded, and kept in
+# RubyWasmIcMinimal::ON_MINIMAL; a test harness may set that constant first
+# (ruby_wasm_builder's MRI player does, for `minimal: true`).
 module RubyWasmIcMinimal
   unless const_defined?(:ON_MINIMAL, false)
-    ON_MINIMAL = !defined?(IC::DATA_DIR).nil? && !Encoding.name_list.include?("ISO-8859-1")
+    ON_MINIMAL = !defined?(IC::DATA_DIR).nil? && Encoding.name_list.size == Encoding.list.size
   end
 
-  def self.guard!(feature)
+  # `feature` is the library a stand-in stands in for, or nil for the entry
+  # file, ruby_wasm_ic_minimal.rb.
+  def self.guard!(feature = nil)
     return if ON_MINIMAL
 
-    raise LoadError, "ruby_wasm_ic_minimal's #{feature} is a stand-in only for a minimal canister, and this is not " \
-                     "one; remove ruby_wasm_ic_minimal from $LOAD_PATH so the real #{feature} loads"
+    raise LoadError, "ruby_wasm_ic_minimal is only for a minimal canister, and this is not one" unless feature
+
+    raise LoadError, "ruby_wasm_ic_minimal's #{feature}.rb stands in for #{feature} only in a minimal canister, " \
+                     "and this is not one; take its standins directory off $LOAD_PATH so the real #{feature} loads"
   end
 end

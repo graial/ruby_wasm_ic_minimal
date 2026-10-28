@@ -7,7 +7,7 @@
 # What needs a real Date fails here, loudly and only when called:
 # Time.parse and Time.strptime (through Date._parse and Date._strptime), and
 # Date itself. Under `full` this file is not carried.
-require_relative "ruby_wasm_ic_minimal/guard"
+require_relative "../guard"
 RubyWasmIcMinimal.guard!("date")
 class Date
   def self.unavailable(what)

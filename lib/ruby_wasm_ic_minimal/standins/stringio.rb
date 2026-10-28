@@ -6,7 +6,7 @@
 # The common reading and writing API, by bytes, with CRuby's meaning. Not
 # here: the encoding conversions (set_encoding only tags), fcntl, and the
 # *_nonblock methods.
-require_relative "ruby_wasm_ic_minimal/guard"
+require_relative "../guard"
 RubyWasmIcMinimal.guard!("stringio")
 class StringIO
   include Enumerable

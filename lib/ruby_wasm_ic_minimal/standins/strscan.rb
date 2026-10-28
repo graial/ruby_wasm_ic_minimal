@@ -10,7 +10,7 @@
 # and ^ match there, which Rack's boundary pattern depends on. Not here: the
 # fixed_anchor: mode, named_captures, scan_byte and peek_byte. Checked
 # against CRuby's on MRI, operation by operation.
-require_relative "ruby_wasm_ic_minimal/guard"
+require_relative "../guard"
 RubyWasmIcMinimal.guard!("strscan")
 class StringScanner
   class Error < StandardError; end

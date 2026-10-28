@@ -5,7 +5,7 @@
 # it loads. Each is found here from a literal, without naming a constant:
 # a "\u" escape is always UTF-8, a Symbol's text US-ASCII, String#b binary.
 # Only these three: there is no transcoding to any other (ADR-0053).
-require_relative "ruby_wasm_ic_minimal/guard"
+require_relative "../guard"
 RubyWasmIcMinimal.guard!("encoding_constants")
 class Encoding
   UTF_8      = "\u0000".encoding unless const_defined?(:UTF_8, false)
