@@ -23,10 +23,10 @@ formats and reads HTTP dates, which need nothing from `Date`; `Time.parse`,
 **Do not put this gem in a Gemfile.** Each file shadows a real library by its
 name, and `date.rb` is a stub. So every file refuses to load anywhere but a
 `minimal` canister, raising `LoadError`. A `minimal` canister is one where the
-builder's wrapper gem has defined `IC::DATA_DIR` and the core knows no more
-than its three built-in encodings (`Encoding.list.size <= 3`). On the `full`
-Build, which links the real libraries and every encoding, it refuses too:
-carry none of it there.
+builder's wrapper gem has defined `IC::DATA_DIR` and the core has no encoding
+database (`ISO-8859-1` is not in `Encoding.name_list`). On the `full` Build,
+which links the real libraries and every encoding, it refuses too: carry none
+of it there.
 
 ## Carrying it
 
@@ -57,8 +57,10 @@ specs are in that repository's `spec/gems/`, and run with the builder's suite,
 including the 0.7.0 `roda_on_minimal` Script played as `minimal` with this
 gem in place of the Challenge's own `carried/` files.
 
-**Not yet observed on a canister:** that `Encoding.list.size` is 3 or less on
-`minimal`. The first deploy that carries this gem checks it; if the guard
-refuses there, the rule is what needs changing.
+**The rule, observed on a canister** (28 October 2026, the 0.6.0 Base Module
+on PocketIC): a `minimal` canister knows 12 encodings, the ones CRuby's core
+registers without its encoding database, so 0.1.1's rule
+(`Encoding.list.size <= 3`) refused to load there. 0.1.2 asks whether
+`ISO-8859-1` is a known name instead.
 
 MIT licensed.
