@@ -24,11 +24,15 @@ formats and reads HTTP dates, which need nothing from `Date`; `Time.parse`,
 name, and `date.rb` is a stub. So every file refuses to load anywhere but a
 `minimal` canister, raising `LoadError`. A `minimal` canister is one where the
 builder's wrapper gem has defined `IC::DATA_DIR` and the core registered no
-alias for any encoding (`Encoding.name_list.size == Encoding.list.size`).
-Observed on PocketIC with the 0.6.0 Base Module (28 October 2026): twelve
+alias for any encoding: `Encoding.name_list` is `Encoding.list`'s names, once
+the pseudo-names `locale`, `external`, `filesystem` and `internal` are left
+out. Observed on PocketIC with the 0.6.0 Base Module (28 October 2026): twelve
 encodings, the core's built-in table, and no alias, which is why
-`# encoding: binary` traps there. MRI and the `full` Build register aliases,
-so it refuses there too: carry none of it on `full`.
+`# encoding: binary` traps there. The pseudo-names appear when
+`Encoding.default_external` or `default_internal` is set, by the Application
+or (from ruby_wasm_builder's 0.9.0) by the Base Module at boot, and they are
+not aliases. MRI and the `full` Build register real aliases (`BINARY`,
+`ASCII`, ...), so it refuses there too: carry none of it on `full`.
 
 ## Carrying it
 
@@ -55,17 +59,18 @@ in a `minimal` canister. After it, Rack's own `require "strscan"` and `time`'s
 
 ## Development
 
-This repository is the gem's source. The
-[ruby_wasm_builder](https://gitlab.com/phrug/ruby_wasm_builder) suite tests the
-published gem (its `spec/gems/`): the guard on MRI, the stand-ins traced
-against CRuby's C extensions, and the 0.7.0 `roda_on_minimal` Script played as
-`minimal` with this gem in place of the Challenge's own `carried/` files. To
-release: bump `lib/ruby_wasm_ic_minimal/version.rb`, then `gem build
-ruby_wasm_ic_minimal.gemspec` and check `gem spec ruby_wasm_ic_minimal-*.gem
-files` lists the lib files before `gem push`.
+`ruby test/guard_test.rb` runs this repository's own tests of the guard, on
+MRI with plain Ruby. More comprehensive testing is done on this gem's primary consumer:
+[ruby_wasm_builder](https://gitlab.com/phrug/ruby_wasm_builder) (in `spec/gems/`): the guard on MRI
 
 ## Changes
 
+- **0.1.4:** the guard leaves the pseudo-names `locale`, `external`,
+  `filesystem` and `internal` out of its count. 0.1.3 counted them, so it
+  refused a canister where `Encoding.default_external` had been set before
+  the first stand-in loaded (as an Application or Rails may do), and it
+  refuses every canister of ruby_wasm_builder's 0.9.0, whose Base Module sets
+  it at boot. **Use 0.1.4 or later.**
 - **0.1.3:** the stand-ins moved under `lib/ruby_wasm_ic_minimal/standins/`,
   put on `$LOAD_PATH` by `require "ruby_wasm_ic_minimal"`, so a Gemfile that
   lists the gem shadows nothing; the guard's rule is "no aliases". **Use
@@ -73,7 +78,5 @@ files` lists the lib files before `gem push`.
   `require "stringio"` on MRI finds the stand-in and raises.
 - **0.1.2:** the guard asks for `ISO-8859-1` by name, and loads on a
   `minimal` canister. The stand-ins are still at the top of `lib/`.
-- **0.1.1:** the first release with files.
-- **0.1.0:** published empty (no `spec.files`).
 
 MIT licensed.

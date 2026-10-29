@@ -9,7 +9,7 @@
 # A `minimal` canister is one where the wrapper gem has defined IC::DATA_DIR
 # (every canister packed by ruby_wasm_builder) and the core registered no
 # alias for any encoding: `Encoding.name_list` is exactly `Encoding.list`'s
-# names. Observed on PocketIC 16.0.0 with the 0.6.0 Base Module (28 October
+# names, once the four pseudo-names are left out (PSEUDO_NAMES, below). Observed on PocketIC 16.0.0 with the 0.6.0 Base Module (28 October
 # 2026): twelve encodings, the core's built-in table, and twelve names, no
 # alias among them, which is why `# encoding: binary` traps there. MRI, and a
 # Build that links the encoding database (`full`), register aliases (BINARY,
@@ -18,14 +18,28 @@
 # against 3 and refused on every canister; 0.1.2 asked for `ISO-8859-1` by
 # name, which held on a canister too.
 #
+# Since 0.1.4 the four pseudo-names CRuby registers for a setting are not
+# counted: `locale` (`rb_locale_encoding`), `external` and `filesystem`
+# (`Encoding.default_external=`) and `internal` (`Encoding.default_internal=`,
+# as Rails's `config.encoding` sets it). They name a setting, not an alias of
+# the encoding table. 0.1.3 counted them, so an Application that set
+# `default_external` before the first stand-in loaded was refused on a
+# canister (W32, observed on the 0.8.0 Release: 12 encodings, 14 names), and a
+# Base Module that sets it at boot, as `ruby` does from the locale, would have
+# been refused always. MRI still has its real aliases (BINARY, ASCII,
+# CP65001, ...), so it is still refused.
+#
 # It counts names rather than looking for Encoding::UTF_8, which this gem's
 # own encoding_constants.rb defines, and defining a constant adds no name.
 # Decided once, at the first stand-in loaded, and kept in
 # RubyWasmIcMinimal::ON_MINIMAL; a test harness may set that constant first
 # (ruby_wasm_builder's MRI player does, for `minimal: true`).
 module RubyWasmIcMinimal
+  # The names CRuby registers for a setting rather than as an alias.
+  PSEUDO_NAMES = %w[locale external filesystem internal].freeze
+
   unless const_defined?(:ON_MINIMAL, false)
-    ON_MINIMAL = !defined?(IC::DATA_DIR).nil? && Encoding.name_list.size == Encoding.list.size
+    ON_MINIMAL = !defined?(IC::DATA_DIR).nil? && (Encoding.name_list - PSEUDO_NAMES).size == Encoding.list.size
   end
 
   # `feature` is the library a stand-in stands in for, or nil for the entry
